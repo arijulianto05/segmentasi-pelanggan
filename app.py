@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-st.set_page_config(page_title="Prediksi Churn Pelanggan IndiHome", page_icon="📶")
+st.set_page_config(page_title="Prediksi Berhenti Berlangganan Pelanggan IndiHome", page_icon="📶")
 
 KATEGORI = ["Layanan_Tambahan", "Metode_Bayar"]
 PAKET = [10, 20, 30, 50, 100, 200]
@@ -27,7 +27,7 @@ def buat_dataset(n=1500, seed=11):
         "Layanan_Tambahan": rng.choice(["IndiHome TV", "Internet Saja"], n, p=[0.45, 0.55]),
         "Metode_Bayar": rng.choice(["Autodebet", "Bayar Manual"], n, p=[0.4, 0.6]),
     })
-    # aturan "tersembunyi" yang membuat peluang churn masuk akal
+    # aturan "tersembunyi" yang membuat peluang berhenti masuk akal
     skor = (
         -0.035 * df["Lama_Berlangganan"]
         + 0.5 * df["Gangguan_Per_Bulan"]
@@ -39,14 +39,14 @@ def buat_dataset(n=1500, seed=11):
         - 1.5
     )
     peluang = 1 / (1 + np.exp(-skor))
-    df["Churn"] = (rng.random(n) < peluang).astype(int)
+    df["Berhenti"] = (rng.random(n) < peluang).astype(int)
     return df
 
 
 @st.cache_resource
 def latih_model():
     df = buat_dataset()
-    X, y = df.drop(columns="Churn"), df["Churn"]
+    X, y = df.drop(columns="Berhenti"), df["Berhenti"]
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     prep = ColumnTransformer([("kat", OneHotEncoder(handle_unknown="ignore"), KATEGORI)], remainder="passthrough")
     model = Pipeline([
@@ -58,11 +58,12 @@ def latih_model():
     return model, akurasi, len(df), y.mean()
 
 
-model, akurasi, jumlah_data, rasio_churn = latih_model()
+model, akurasi, jumlah_data, rasio_berhenti = latih_model()
 
 # ------------------------------------------------------------ TAMPILAN
-st.title("📶 Prediksi Churn Pelanggan IndiHome")
-st.write("Isi data pelanggan di bawah, lalu klik tombol untuk memprediksi apakah pelanggan akan **berhenti berlangganan (churn)**.")
+st.title("📶 Prediksi Berhenti Berlangganan Pelanggan IndiHome")
+st.caption("🎓 Demo akademik project Machine Learning")
+st.write("Isi data pelanggan di bawah, lalu klik tombol untuk memprediksi apakah pelanggan akan **berhenti berlangganan**.")
 st.caption(f"Model: Random Forest · {jumlah_data} data latih · akurasi uji {akurasi * 100:.1f}%")
 
 c1, c2 = st.columns(2)
@@ -76,7 +77,7 @@ with c2:
     telat = st.slider("Telat Bayar (6 bulan terakhir, kali)", 0, 6, 0)
     bayar = st.selectbox("Metode Pembayaran", ["Autodebet", "Bayar Manual"])
 
-if st.button("Prediksi Churn", type="primary", width="stretch"):
+if st.button("Prediksi Pelanggan", type="primary", width="stretch"):
     baru = pd.DataFrame([{
         "Lama_Berlangganan": lama,
         "Paket_Mbps": paket,
@@ -88,7 +89,7 @@ if st.button("Prediksi Churn", type="primary", width="stretch"):
     }])
     p = model.predict_proba(baru)[0][1]
     if p >= 0.5:
-        st.error(f"⚠️ Pelanggan **berpotensi CHURN** (peluang {p * 100:.1f}%)")
+        st.error(f"⚠️ Pelanggan **berpotensi BERHENTI berlangganan** (peluang {p * 100:.1f}%)")
         saran = []
         if gangguan >= 3:
             saran.append("prioritaskan perbaikan jaringan di lokasi pelanggan")
@@ -102,13 +103,13 @@ if st.button("Prediksi Churn", type="primary", width="stretch"):
             saran.append("berikan promo retensi atau penawaran upgrade paket")
         st.write("Saran tindak lanjut: " + "; ".join(saran) + ".")
     else:
-        st.success(f"✅ Pelanggan **kemungkinan TETAP berlangganan** (peluang churn {p * 100:.1f}%)")
-    st.progress(float(p), text=f"Peluang churn: {p * 100:.1f}%")
+        st.success(f"✅ Pelanggan **kemungkinan TETAP berlangganan** (peluang berhenti {p * 100:.1f}%)")
+    st.progress(float(p), text=f"Peluang berhenti berlangganan: {p * 100:.1f}%")
 
 with st.expander("Lihat data latih"):
     st.dataframe(buat_dataset().head(50), width="stretch")
     st.caption(
-        f"Proporsi churn pada data: {rasio_churn * 100:.1f}%. "
+        f"Proporsi pelanggan berhenti pada data: {rasio_berhenti * 100:.1f}%. "
         "Data dibuat secara simulasi untuk keperluan belajar data mining, "
-        "bukan data resmi IndiHome/Telkom."
+        "bukan data resmi IndiHome/Telkom. Demo akademik project Machine Learning."
     )
